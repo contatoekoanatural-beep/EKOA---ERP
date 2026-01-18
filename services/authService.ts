@@ -4,7 +4,9 @@ import {
     createUserWithEmailAndPassword,
     updatePassword,
     sendPasswordResetEmail,
-    updateProfile
+    updateProfile,
+    reauthenticateWithCredential,
+    EmailAuthProvider
 } from "firebase/auth";
 import {
     doc,
@@ -77,11 +79,19 @@ export const authService = {
     },
 
     // Change Current User's Password
-    changeCurrentPassword: async (currentUser: any, newPassword: string) => {
+    // Change Current User's Password
+    changeCurrentPassword: async (currentUser: any, newPassword: string, currentPassword?: string) => {
         const auth = getAuth(); // Main app auth
-        if (!auth.currentUser) throw new Error("Usuário não autenticado.");
+        const user = auth.currentUser;
 
-        await updatePassword(auth.currentUser, newPassword);
+        if (!user) throw new Error("Usuário não autenticado.");
+
+        if (currentPassword && user.email) {
+            const credential = EmailAuthProvider.credential(user.email, currentPassword);
+            await reauthenticateWithCredential(user, credential);
+        }
+
+        await updatePassword(user, newPassword);
     },
 
     // Send Password Reset Email (for other users)

@@ -29,7 +29,9 @@ import { User, UserAccess } from '../types';
 import { ConfirmationModal } from '../components/ConfirmationModal';
 
 // Separate Modal for Changing Password
+// Separate Modal for Changing Password
 const ChangePasswordModal = ({ isOpen, onClose, onConfirm }: any) => {
+    const [currentPassword, setCurrentPassword] = useState('');
     const [password, setPassword] = useState('');
     const [confirm, setConfirm] = useState('');
 
@@ -39,19 +41,29 @@ const ChangePasswordModal = ({ isOpen, onClose, onConfirm }: any) => {
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4 backdrop-blur-md">
             <div className="bg-[#1F1F1F] rounded-3xl p-8 w-full max-w-md border border-white/5 space-y-6">
                 <h3 className="text-xl font-bold text-white mb-4">Alterar Minha Senha</h3>
+
+                <div className="bg-amber-500/10 p-4 rounded-xl border border-amber-500/20 mb-4">
+                    <p className="text-[10px] text-amber-500 font-bold uppercase tracking-widest mb-1">Segurança</p>
+                    <p className="text-xs text-amber-200/80">Para sua segurança, confirme sua senha atual antes de definir uma nova.</p>
+                </div>
+
+                <div>
+                    <label className="block text-[10px] font-black text-[#808080] uppercase mb-2 tracking-widest">Senha Atual</label>
+                    <input type="password" className="w-full border border-white/5 rounded-2xl p-4 text-sm font-black text-white bg-[#252525]" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} />
+                </div>
                 <div>
                     <label className="block text-[10px] font-black text-[#808080] uppercase mb-2 tracking-widest">Nova Senha</label>
                     <input type="password" className="w-full border border-white/5 rounded-2xl p-4 text-sm font-black text-white bg-[#252525]" value={password} onChange={e => setPassword(e.target.value)} />
                 </div>
                 <div>
-                    <label className="block text-[10px] font-black text-[#808080] uppercase mb-2 tracking-widest">Confirmar Senha</label>
+                    <label className="block text-[10px] font-black text-[#808080] uppercase mb-2 tracking-widest">Confirmar Nova Senha</label>
                     <input type="password" className="w-full border border-white/5 rounded-2xl p-4 text-sm font-black text-white bg-[#252525]" value={confirm} onChange={e => setConfirm(e.target.value)} />
                 </div>
                 <div className="flex justify-end gap-3 pt-4">
                     <button onClick={onClose} className="px-5 py-3 rounded-xl border border-white/5 text-[#808080] font-bold text-xs uppercase">Cancelar</button>
                     <button
-                        disabled={!password || password !== confirm}
-                        onClick={() => onConfirm(password)}
+                        disabled={!password || !currentPassword || password !== confirm}
+                        onClick={() => onConfirm(password, currentPassword)}
                         className="px-5 py-3 rounded-xl bg-[#5D7F38] text-white font-bold text-xs uppercase disabled:opacity-50"
                     >
                         Salvar Nova Senha
@@ -122,9 +134,9 @@ export const Team = () => {
 
     const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
 
-    const handlePasswordChange = async (newPass: string) => {
+    const handlePasswordChange = async (newPass: string, currentPass: string) => {
         try {
-            await authService.changeCurrentPassword(currentUser, newPass);
+            await authService.changeCurrentPassword(currentUser, newPass, currentPass);
             alert("Senha alterada com sucesso!");
             setIsPasswordModalOpen(false);
         } catch (e: any) {
