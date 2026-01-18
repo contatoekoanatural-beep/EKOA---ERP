@@ -1,10 +1,11 @@
 
 import React, { useState } from 'react';
-import { 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
-  signInAnonymously, 
-  Auth 
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signInAnonymously,
+  sendPasswordResetEmail,
+  Auth
 } from 'firebase/auth';
 import { LogIn, UserPlus, UserCircle } from 'lucide-react';
 
@@ -59,6 +60,21 @@ export const LoginPage: React.FC<LoginPageProps> = ({ auth }) => {
     }
   };
 
+  const handleForgotPassword = async () => {
+    if (!email) return setError('Digite seu e-mail para recuperar a senha.');
+    setLoading(true);
+    setError('');
+    try {
+      await sendPasswordResetEmail(auth, email);
+      alert('E-mail de recuperação enviado! Verifique sua caixa de entrada.');
+    } catch (err: any) {
+      setError('Erro ao enviar e-mail de recuperação. Verifique o e-mail informado.');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
       <div className="bg-white p-8 rounded-2xl shadow-xl border border-slate-200 w-full max-w-md space-y-6">
@@ -76,9 +92,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ auth }) => {
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">E-mail</label>
-            <input 
-              type="email" 
-              required 
+            <input
+              type="email"
+              required
               className="w-full border border-slate-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-brand-500 transition-all"
               placeholder="exemplo@email.com"
               value={email}
@@ -87,9 +103,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ auth }) => {
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Senha</label>
-            <input 
-              type="password" 
-              required 
+            <input
+              type="password"
+              required
               className="w-full border border-slate-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-brand-500 transition-all"
               placeholder="••••••••"
               value={password}
@@ -97,15 +113,25 @@ export const LoginPage: React.FC<LoginPageProps> = ({ auth }) => {
             />
           </div>
 
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={handleForgotPassword}
+              className="text-xs text-brand-600 hover:text-brand-700 hover:underline font-medium"
+            >
+              Esqueceu sua senha?
+            </button>
+          </div>
+
           <div className="flex flex-col gap-3 pt-2">
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               disabled={loading}
               className="w-full bg-brand-600 text-white font-bold py-3 rounded-lg hover:bg-brand-700 flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
             >
               <LogIn size={20} /> Entrar
             </button>
-            <button 
+            <button
               type="button"
               onClick={handleSignUp}
               disabled={loading}
@@ -121,7 +147,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ auth }) => {
           <div className="relative flex justify-center text-xs uppercase"><span className="bg-white px-2 text-slate-400">Ou continue como</span></div>
         </div>
 
-        <button 
+        <button
           onClick={handleGuest}
           disabled={loading}
           className="w-full text-brand-600 font-semibold py-2 hover:underline flex items-center justify-center gap-2 text-sm disabled:opacity-50"
