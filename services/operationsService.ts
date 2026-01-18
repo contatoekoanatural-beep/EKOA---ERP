@@ -6,7 +6,9 @@ import {
     deleteDoc,
 } from "firebase/firestore";
 import { db, deepClean, serverTimestamp } from "./firebase";
-import { TaskStatus, getNextOccurrenceDate } from "../constants"; // We need to check where getNextOccurrenceDate comes from. It's in ../constants.ts
+import { getNextOccurrenceDate } from "../constants";
+import { TaskStatus } from "../types";
+import { authService } from "./authService";
 
 export const operationsService = {
     // PRODUCTS
@@ -30,7 +32,11 @@ export const operationsService = {
     deleteGoal: (id: string) => deleteDoc(doc(db, "goals", id)),
 
     // USERS
-    addUser: (u: any) => addDoc(collection(db, "users"), { ...deepClean(u), createdAt: serverTimestamp() }),
+    addUser: async (u: any) => {
+        // Extract password if present to prevent saving it to Firestore
+        const { password, ...userData } = u;
+        return authService.createUser(userData, password);
+    },
     updateUser: (u: any) => updateDoc(doc(db, "users", u.id), { ...deepClean(u), updatedAt: serverTimestamp() }),
     deleteUser: (id: string) => deleteDoc(doc(db, "users", id)),
 

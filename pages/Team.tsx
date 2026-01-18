@@ -3,6 +3,7 @@ import React, { useContext, useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useOperations } from '../contexts/OperationsContext';
 import { useAuth } from '../contexts/AuthContext';
+import { authService } from '../services/authService';
 
 import {
     User as UserIcon,
@@ -18,10 +19,48 @@ import {
     PowerOff,
     Target,
     Check,
-    Briefcase
+    Briefcase,
+    Key,
+    Mail
 } from 'lucide-react';
+
+
 import { User, UserAccess } from '../types';
 import { ConfirmationModal } from '../components/ConfirmationModal';
+
+// Separate Modal for Changing Password
+const ChangePasswordModal = ({ isOpen, onClose, onConfirm }: any) => {
+    const [password, setPassword] = useState('');
+    const [confirm, setConfirm] = useState('');
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4 backdrop-blur-md">
+            <div className="bg-[#1F1F1F] rounded-3xl p-8 w-full max-w-md border border-white/5 space-y-6">
+                <h3 className="text-xl font-bold text-white mb-4">Alterar Minha Senha</h3>
+                <div>
+                    <label className="block text-[10px] font-black text-[#808080] uppercase mb-2 tracking-widest">Nova Senha</label>
+                    <input type="password" className="w-full border border-white/5 rounded-2xl p-4 text-sm font-black text-white bg-[#252525]" value={password} onChange={e => setPassword(e.target.value)} />
+                </div>
+                <div>
+                    <label className="block text-[10px] font-black text-[#808080] uppercase mb-2 tracking-widest">Confirmar Senha</label>
+                    <input type="password" className="w-full border border-white/5 rounded-2xl p-4 text-sm font-black text-white bg-[#252525]" value={confirm} onChange={e => setConfirm(e.target.value)} />
+                </div>
+                <div className="flex justify-end gap-3 pt-4">
+                    <button onClick={onClose} className="px-5 py-3 rounded-xl border border-white/5 text-[#808080] font-bold text-xs uppercase">Cancelar</button>
+                    <button
+                        disabled={!password || password !== confirm}
+                        onClick={() => onConfirm(password)}
+                        className="px-5 py-3 rounded-xl bg-[#5D7F38] text-white font-bold text-xs uppercase disabled:opacity-50"
+                    >
+                        Salvar Nova Senha
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 const DEFAULT_ACCESS: UserAccess = {
     dashboard: true,
@@ -61,12 +100,14 @@ export const Team = () => {
         role: 'admin' | 'staff';
         isActive: boolean;
         access: UserAccess;
+        password?: string;
     }>({
         name: '',
         email: '',
         role: 'staff',
         isActive: true,
-        access: DEFAULT_ACCESS
+        access: DEFAULT_ACCESS,
+        password: ''
     });
 
     const [isConfirmOpen, setIsConfirmOpen] = useState(false);
@@ -76,10 +117,29 @@ export const Team = () => {
         onConfirm: () => void;
         variant?: 'danger' | 'warning' | 'info' | 'success';
     }>({
-        title: '',
-        description: '',
         onConfirm: () => { }
     });
+
+    const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+
+    const handlePasswordChange = async (newPass: string) => {
+        try {
+            await authService.changeCurrentPassword(currentUser, newPass);
+            alert("Senha alterada com sucesso!");
+            setIsPasswordModalOpen(false);
+        } catch (e: any) {
+            alert("Erro ao alterar senha: " + e.message);
+        }
+    };
+
+    const handleResetEmail = async (email: string) => {
+        try {
+            await authService.sendResetEmail(email);
+            alert(`E-mail de redefinição enviado para ${email}`);
+        } catch (e: any) {
+            alert("Erro ao enviar e-mail: " + e.message);
+        }
+    };
 
     const canManageTeam = useMemo(() => {
         if (!profileReady) return false;
@@ -115,7 +175,8 @@ export const Team = () => {
                 email: '',
                 role: 'staff',
                 isActive: true,
-                access: { ...DEFAULT_ACCESS, team: false }
+                access: { ...DEFAULT_ACCESS, team: false },
+                password: ''
             });
         }
         setIsModalOpen(true);
@@ -391,12 +452,45 @@ export const Team = () => {
                                 </div>
                             )}
 
-                            {userForm.role === 'admin' && (
-                                <div className="bg-purple-500/10 p-4 rounded-2xl border border-purple-500/20 flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
-                                    <Info size={20} className="text-purple-400 flex-shrink-0" />
-                                    <p className="text-[10px] font-bold text-purple-400 leading-tight">
-                                        Administradores possuem acesso total a todos os módulos, incluindo gestão de equipe e configurações críticas.
-                                    </p>
+
+
+                            {/* Password Section for New Users */}
+                            {!editingUser && (
+                                <div className="bg-[#252525] p-6 rounded-3xl border border-white/5">
+                                    <label className="block text-[10px] font-black text-[#808080] uppercase mb-3 tracking-widest flex items-center gap-2"><Lock size={12} /> Senha de Acesso</label>
+                                    <input
+                                        type="password"
+                                        placeholder="Defina uma senha inicial..."
+                                        className="w-full border border-white/5 rounded-2xl p-4 text-sm font-black text-white outline-none focus:border-[#5D7F38] bg-[#1F1F1F] placeholder:text-[#606060]"
+                                        value={userForm.password}
+                                        onChange={e => setUserForm({ ...userForm, password: e.target.value })}
+                                    />
+                                    <p className="text-[10px] text-[#606060] mt-2 font-medium">Se deixar em branco, será gerada uma senha aleatória.</p>
+                                </div>
+                            )}
+
+                            {/* Password Actions for Existing Users */}
+                            {editingUser && (
+                                <div className="bg-[#252525] p-6 rounded-3xl border border-white/5 space-y-3">
+                                    <label className="block text-[10px] font-black text-[#808080] uppercase mb-1 tracking-widest flex items-center gap-2"><Key size={12} /> Segurança</label>
+
+                                    {editingUser.id === currentUser?.id ? (
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsPasswordModalOpen(true)}
+                                            className="w-full py-3 rounded-xl bg-[#5D7F38]/10 text-[#5D7F38] font-bold text-xs uppercase border border-[#5D7F38]/20 hover:bg-[#5D7F38]/20 transition-all flex items-center justify-center gap-2"
+                                        >
+                                            <Key size={14} /> Alterar Minha Senha
+                                        </button>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            onClick={() => handleResetEmail(editingUser.email || '')}
+                                            className="w-full py-3 rounded-xl bg-blue-500/10 text-blue-400 font-bold text-xs uppercase border border-blue-500/20 hover:bg-blue-500/20 transition-all flex items-center justify-center gap-2"
+                                        >
+                                            <Mail size={14} /> Enviar E-mail de Redefinição de Senha
+                                        </button>
+                                    )}
                                 </div>
                             )}
 
@@ -410,6 +504,12 @@ export const Team = () => {
                     </div>
                 </div>
             )}
+
+            <ChangePasswordModal
+                isOpen={isPasswordModalOpen}
+                onClose={() => setIsPasswordModalOpen(false)}
+                onConfirm={handlePasswordChange}
+            />
 
             <ConfirmationModal
                 isOpen={isConfirmOpen}
