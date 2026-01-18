@@ -4,16 +4,16 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signInAnonymously,
-  sendPasswordResetEmail,
-  Auth
+  sendPasswordResetEmail
 } from 'firebase/auth';
 import { LogIn, UserPlus, UserCircle } from 'lucide-react';
+import { auth } from '../services/firebase';
 
 interface LoginPageProps {
-  auth: Auth;
+  // No props needed now
 }
 
-export const LoginPage: React.FC<LoginPageProps> = ({ auth }) => {
+export const LoginPage: React.FC<LoginPageProps> = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
