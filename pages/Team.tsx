@@ -30,7 +30,8 @@ import { ConfirmationModal } from '../components/ConfirmationModal';
 
 // Separate Modal for Changing Password
 // Separate Modal for Changing Password
-const ChangePasswordModal = ({ isOpen, onClose, onConfirm }: any) => {
+// Separate Modal for Changing Password
+const ChangePasswordModal = ({ isOpen, onClose, onConfirm, onForgot }: any) => {
     const [currentPassword, setCurrentPassword] = useState('');
     const [password, setPassword] = useState('');
     const [confirm, setConfirm] = useState('');
@@ -48,7 +49,12 @@ const ChangePasswordModal = ({ isOpen, onClose, onConfirm }: any) => {
                 </div>
 
                 <div>
-                    <label className="block text-[10px] font-black text-[#808080] uppercase mb-2 tracking-widest">Senha Atual</label>
+                    <div className="flex justify-between items-center mb-2">
+                        <label className="block text-[10px] font-black text-[#808080] uppercase tracking-widest">Senha Atual</label>
+                        <button onClick={onForgot} type="button" className="text-[10px] font-bold text-[#5D7F38] hover:underline uppercase tracking-widest">
+                            Não lembro a senha
+                        </button>
+                    </div>
                     <input type="password" className="w-full border border-white/5 rounded-2xl p-4 text-sm font-black text-white bg-[#252525]" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} />
                 </div>
                 <div>
@@ -521,6 +527,15 @@ export const Team = () => {
                 isOpen={isPasswordModalOpen}
                 onClose={() => setIsPasswordModalOpen(false)}
                 onConfirm={handlePasswordChange}
+                onForgot={() => {
+                    const email = currentUser?.email || editingUser?.email;
+                    if (email) {
+                        setIsPasswordModalOpen(false);
+                        handleResetEmail(email);
+                    } else {
+                        alert("E-mail não encontrado.");
+                    }
+                }}
             />
 
             <ConfirmationModal
