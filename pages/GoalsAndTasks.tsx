@@ -615,7 +615,7 @@ export const GoalsAndTasks = () => {
                                                     {t.completedAt ? formatDate(t.completedAt.toDate ? t.completedAt.toDate() : new Date(t.completedAt)) : 'N/A'}
                                                 </td>
                                                 <td className="p-4 text-right">
-                                                    <button onClick={() => toggleTaskStatus(t.id, 'A fazer')} className="text-[#808080] hover:text-[#5D7F38] transition-colors p-2 rounded-lg hover:bg-[#5D7F38]/10" title="Reabrir Tarefa">
+                                                    <button onClick={() => toggleTaskStatus(t, 'A fazer')} className="text-[#808080] hover:text-[#5D7F38] transition-colors p-2 rounded-lg hover:bg-[#5D7F38]/10" title="Reabrir Tarefa">
                                                         <Repeat size={16} />
                                                     </button>
                                                 </td>
@@ -647,7 +647,7 @@ export const GoalsAndTasks = () => {
                                         return (
                                             <div key={t.id} className="bg-[#252525] p-4 rounded-2xl border border-white/5 shadow-sm hover:shadow-xl transition-all group border-l-4" style={{ borderLeftColor: t.priority === 'Alta' ? '#ef4444' : t.priority === 'Média' ? '#f59e0b' : '#5D7F38' }}>
                                                 <div className="flex justify-between items-start gap-3">
-                                                    <button onClick={() => toggleTaskStatus(t.id, t.status === 'Concluída' ? 'A fazer' : 'Concluída')} className={`mt-0.5 flex-shrink-0 transition-all transform active:scale-90 ${t.status === 'Concluída' ? 'text-emerald-500' : 'text-[#606060] hover:text-[#5D7F38]'}`}>
+                                                    <button onClick={() => toggleTaskStatus(t, t.status === 'Concluída' ? 'A fazer' : 'Concluída')} className={`mt-0.5 flex-shrink-0 transition-all transform active:scale-90 ${t.status === 'Concluída' ? 'text-emerald-500' : 'text-[#606060] hover:text-[#5D7F38]'}`}>
                                                         {t.status === 'Concluída' ? <CheckCircle size={22} strokeWidth={3} /> : <div className="w-5 h-5 rounded-md border-2 border-current" />}
                                                     </button>
                                                     <div className="flex-1 overflow-hidden">
@@ -676,7 +676,7 @@ export const GoalsAndTasks = () => {
                                                             <button onClick={() => handleOpenTaskModal(t)} className="p-2 bg-[#1F1F1F] rounded-xl text-[#808080] hover:text-[#5D7F38] hover:bg-[#5D7F38]/10 transition-all"><Edit size={14} /></button>
                                                             <button onClick={() => { if (window.confirm("Excluir tarefa?")) deleteTask(t.id); }} className="p-2 bg-[#1F1F1F] rounded-xl text-[#808080] hover:text-red-500 hover:bg-red-500/10 transition-all"><Trash2 size={14} /></button>
                                                             {t.status === 'A fazer' && (
-                                                                <button onClick={() => toggleTaskStatus(t.id, 'Em andamento')} className="p-2 bg-[#5D7F38]/10 rounded-xl text-[#5D7F38] hover:bg-[#5D7F38] hover:text-white transition-all flex items-center justify-center" title="Iniciar Tarefa">
+                                                                <button onClick={() => toggleTaskStatus(t, 'Em andamento')} className="p-2 bg-[#5D7F38]/10 rounded-xl text-[#5D7F38] hover:bg-[#5D7F38] hover:text-white transition-all flex items-center justify-center" title="Iniciar Tarefa">
                                                                     <ArrowRight size={14} />
                                                                 </button>
                                                             )}

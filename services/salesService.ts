@@ -14,8 +14,8 @@ export const salesService = {
         // 1. Add Sale
         const saleRef = await addDoc(collection(db, "sales"), { ...deepClean(s), createdAt: serverTimestamp() });
 
-        // 2. Decrement Stock
-        if (s.productId) {
+        // 2. Decrement Stock (Only for Logzz with selected Batch)
+        if (s.productId && s.deliveryType === 'Logzz' && s.batchId) {
             // Fetch current product to get latest stock
             const prodRef = doc(db, "products", s.productId);
             const prodSnap = await getDoc(prodRef);

@@ -6,6 +6,7 @@ import { useFinance } from '../contexts/FinanceContext';
 import { useMarketing } from '../contexts/MarketingContext';
 
 import { formatCurrency, getCurrentLocalDate, getLast30DaysDate } from '../constants';
+import { getPeriodRange } from '../utils/dateUtils';
 import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, Area, AreaChart
 } from 'recharts';
@@ -94,7 +95,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   return null;
 };
 
-type PeriodOption = 'hoje' | '7d_passado' | '7d_futuro' | '30d_passado' | '30d_futuro' | 'este_mes' | 'mes_passado' | 'personalizado' | 'tudo';
+type PeriodOption = 'hoje' | 'amanha' | 'ontem' | '7d_futuro' | '7d_passado' | 'personalizado';
 
 export const Dashboard = () => {
   const navigate = useNavigate();
@@ -103,69 +104,21 @@ export const Dashboard = () => {
   const { transactions, ledgers } = useFinance();
 
 
-  const [selectedPeriod, setSelectedPeriod] = useState<PeriodOption>('este_mes');
-  const [dateFrom, setDateFrom] = useState<string>(getLast30DaysDate());
+  const [selectedPeriod, setSelectedPeriod] = useState<PeriodOption>('7d_passado');
+  const [dateFrom, setDateFrom] = useState<string>(getCurrentLocalDate());
   const [dateTo, setDateTo] = useState<string>(getCurrentLocalDate());
+  const [dateError, setDateError] = useState<string>('');
 
   // Lógica para atualizar as datas baseado no período selecionado
   useEffect(() => {
-    const today = new Date();
-    const formatDate = (d: Date) => d.toISOString().split('T')[0];
+    if (selectedPeriod === 'personalizado') return;
 
-    switch (selectedPeriod) {
-      case 'hoje':
-        setDateFrom(formatDate(today));
-        setDateTo(formatDate(today));
-        break;
-      case '7d_passado': {
-        const start = new Date();
-        start.setDate(today.getDate() - 6);
-        setDateFrom(formatDate(start));
-        setDateTo(formatDate(today));
-        break;
-      }
-      case '7d_futuro': {
-        const end = new Date();
-        end.setDate(today.getDate() + 6);
-        setDateFrom(formatDate(today));
-        setDateTo(formatDate(end));
-        break;
-      }
-      case '30d_passado': {
-        const start = new Date();
-        start.setDate(today.getDate() - 29);
-        setDateFrom(formatDate(start));
-        setDateTo(formatDate(today));
-        break;
-      }
-      case '30d_futuro': {
-        const end = new Date();
-        end.setDate(today.getDate() + 29);
-        setDateFrom(formatDate(today));
-        setDateTo(formatDate(end));
-        break;
-      }
-      case 'este_mes': {
-        const start = new Date(today.getFullYear(), today.getMonth(), 1);
-        const end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-        setDateFrom(formatDate(start));
-        setDateTo(formatDate(end));
-        break;
-      }
-      case 'mes_passado': {
-        const start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-        const end = new Date(today.getFullYear(), today.getMonth(), 0);
-        setDateFrom(formatDate(start));
-        setDateTo(formatDate(end));
-        break;
-      }
-      case 'tudo':
-        setDateFrom('');
-        setDateTo('');
-        break;
-      case 'personalizado':
-        // Mantém as datas atuais para o usuário editar
-        break;
+    const { startDateTime, endDateTime } = getPeriodRange(selectedPeriod);
+
+    // The inputs expect YYYY-MM-DD
+    if (startDateTime && endDateTime) {
+      setDateFrom(startDateTime.split('T')[0]);
+      setDateTo(endDateTime.split('T')[0]);
     }
   }, [selectedPeriod]);
 
@@ -347,32 +300,53 @@ export const Dashboard = () => {
               className="appearance-none bg-[#1F1F1F] border border-white/10 rounded-xl pl-4 pr-10 py-3 text-[10px] font-bold uppercase tracking-widest text-[#E5E5E5] focus:outline-none focus:border-white/30 cursor-pointer hover:bg-[#252525] transition-colors"
             >
               <option value="hoje">Hoje</option>
-              <option value="7d_passado">Últimos 7 dias</option>
+              <option value="amanha">Amanhã</option>
+              <option value="ontem">Ontem</option>
               <option value="7d_futuro">Próximos 7 dias</option>
-              <option value="30d_passado">Últimos 30 dias</option>
-              <option value="30d_futuro">Próximos 30 dias</option>
-              <option value="este_mes">Este mês</option>
-              <option value="mes_passado">Mês passado</option>
-              <option value="tudo">Ver Tudo</option>
+              <option value="7d_passado">Últimos 7 dias</option>
               <option value="personalizado">Personalizado</option>
             </select>
           </div>
 
           {selectedPeriod === 'personalizado' && (
-            <div className="flex items-center gap-2 bg-[#1F1F1F] border border-white/10 rounded-xl p-2 px-3">
-              <input
-                type="date"
-                className="bg-transparent border-none text-[10px] text-white font-bold p-0 focus:ring-0"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-              />
-              <span className="text-[#606060]">-</span>
-              <input
-                type="date"
-                className="bg-transparent border-none text-[10px] text-white font-bold p-0 focus:ring-0"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-              />
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-2 bg-[#1F1F1F] border border-white/10 rounded-xl p-2 px-3">
+                <Calendar size={14} className="text-[#808080]" />
+                <input
+                  type="date"
+                  className="bg-transparent border-none text-[10px] text-white font-bold p-0 focus:ring-0 [color-scheme:dark] w-24"
+                  value={dateFrom}
+                  onChange={(e) => {
+                    const newFrom = e.target.value;
+                    setDateFrom(newFrom);
+                    if (dateTo && newFrom > dateTo) {
+                      setDateError('Data inicial não pode ser maior que a data final.');
+                    } else {
+                      setDateError('');
+                    }
+                  }}
+                />
+                <span className="text-[#606060] text-[9px]">até</span>
+                <input
+                  type="date"
+                  className="bg-transparent border-none text-[10px] text-white font-bold p-0 focus:ring-0 [color-scheme:dark] w-24"
+                  value={dateTo}
+                  onChange={(e) => {
+                    const newTo = e.target.value;
+                    if (dateFrom && newTo < dateFrom) {
+                      setDateError('Data final não pode ser menor que a data inicial.');
+                    } else {
+                      setDateError('');
+                      setDateTo(newTo);
+                    }
+                  }}
+                />
+              </div>
+              {dateError && (
+                <span className="text-[10px] text-red-400 font-bold ml-1">
+                  {dateError}
+                </span>
+              )}
             </div>
           )}
         </div>

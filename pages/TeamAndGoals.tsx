@@ -223,7 +223,7 @@ export const TeamAndGoals = () => {
                   <button
                     onClick={() =>
                       toggleTaskStatus(
-                        t.id,
+                        t,
                         t.status === 'Concluída' ? 'A fazer' : 'Concluída',
                       )
                     }

@@ -79,7 +79,7 @@ export const Marketing = () => {
     const { products, sales } = useOperations();
 
 
-    const [activeTab, setActiveTab] = useState<'METRICS' | 'STRUCTURE'>('STRUCTURE');
+    const [activeTab, setActiveTab] = useState<'PERFORMANCE' | 'STRUCTURE'>('STRUCTURE');
     const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
 
     const [selectedAdSetId, setSelectedAdSetId] = useState<string | null>(null);
@@ -180,6 +180,7 @@ export const Marketing = () => {
     const [dateFrom, setDateFrom] = useState<string>(getLast30DaysDate());
     const [dateTo, setDateTo] = useState<string>(getCurrentLocalDate());
     const [rankingMode, setRankingMode] = useState<'CREATIVE' | 'CAMPAIGN'>('CREATIVE');
+    const [performanceView, setPerformanceView] = useState<'RANKING' | 'DIARIO'>('RANKING');
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -222,11 +223,11 @@ export const Marketing = () => {
     }, [selectedPeriod]);
 
     const isWithinRange = (dateStr?: string | null) => {
-        if (!dateFrom && !dateTo) return true;
+        if (!metricsDateFrom && !metricsDateTo) return true;
         if (!dateStr) return false;
         const d = dateStr.split('T')[0];
-        const start = dateFrom || '0000-01-01';
-        const end = dateTo || '9999-12-31';
+        const start = metricsDateFrom || '0000-01-01';
+        const end = metricsDateTo || '9999-12-31';
         return d >= start && d <= end;
     };
 
@@ -264,7 +265,7 @@ export const Marketing = () => {
             if (a.roi === b.roi) return b.profit - a.profit; // Tie-break with profit
             return b.roi - a.roi;
         });
-    }, [dailyMetrics, sales, creatives, dateFrom, dateTo]);
+    }, [dailyMetrics, sales, creatives, metricsDateFrom, metricsDateTo]);
 
     // Ranking de Campanhas
     const campaignRanking = useMemo(() => {
@@ -311,7 +312,7 @@ export const Marketing = () => {
             if (a.roi === b.roi) return b.profit - a.profit;
             return b.roi - a.roi;
         });
-    }, [dailyMetrics, sales, creatives, adSets, campaigns, dateFrom, dateTo]);
+    }, [dailyMetrics, sales, creatives, adSets, campaigns, metricsDateFrom, metricsDateTo]);
 
     // Modais
     const [modalType, setModalType] = useState<'CAMPAIGN' | 'ADSET' | 'CREATIVE' | 'EDIT_CAMPAIGN' | 'EDIT_ADSET' | 'EDIT_CREATIVE' | null>(null);
@@ -507,7 +508,7 @@ export const Marketing = () => {
                 </div>
                 <div className="flex bg-[#1F1F1F] rounded-2xl p-1.5 border border-white/5 shadow-sm">
                     <button onClick={() => setActiveTab('STRUCTURE')} className={`px-6 py-2 rounded-xl text-xs font-black transition-all ${activeTab === 'STRUCTURE' ? 'bg-[#5D7F38] text-white shadow-lg' : 'text-[#808080] hover:bg-white/5 hover:text-white'}`}>ESTRUTURA</button>
-                    <button onClick={() => setActiveTab('METRICS')} className={`px-6 py-2 rounded-xl text-xs font-black transition-all ${activeTab === 'METRICS' ? 'bg-[#5D7F38] text-white shadow-lg' : 'text-[#808080] hover:bg-white/5 hover:text-white'}`}>MÉTRICAS</button>
+                    <button onClick={() => setActiveTab('PERFORMANCE')} className={`px-6 py-2 rounded-xl text-xs font-black transition-all ${activeTab === 'PERFORMANCE' ? 'bg-[#5D7F38] text-white shadow-lg' : 'text-[#808080] hover:bg-white/5 hover:text-white'}`}>PERFORMANCE</button>
                 </div>
             </div>
 
@@ -583,7 +584,9 @@ export const Marketing = () => {
                                             </div>
                                             <div>
                                                 <h4 className="font-black text-white text-sm">{campaign.name}</h4>
-                                                <p className="text-[10px] font-bold text-[#808080] uppercase tracking-wide">{sets.length} Conjuntos</p>
+                                                <p className="text-[10px] font-bold text-[#808080] uppercase tracking-wide">
+                                                    {sets.length} Conjuntos • {creatives.filter(c => sets.some(s => s.id === c.adSetId)).length} Criativos
+                                                </p>
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-2">
@@ -688,123 +691,10 @@ export const Marketing = () => {
                             );
                         })}
                     </div>
-
-
-                    <div className="bg-[#1F1F1F] rounded-3xl border border-white/5 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 delay-100">
-                        <div className="p-6 border-b border-white/5 flex flex-col md:flex-row justify-between items-center gap-4">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-amber-500/10 text-amber-400 rounded-xl">
-                                    <Trophy size={20} />
-                                </div>
-                                <div>
-                                    <h3 className="font-black text-white text-sm uppercase tracking-wide">Ranking de Performance</h3>
-                                    <p className="text-[10px] font-bold text-[#808080]">Melhores campanhas e criativos</p>
-                                </div>
-                            </div>
-
-                            <div className="flex items-center gap-3">
-                                <div className="flex bg-[#252525] p-1 rounded-xl">
-                                    <button
-                                        onClick={() => setRankingMode('CAMPAIGN')}
-                                        className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all ${rankingMode === 'CAMPAIGN' ? 'bg-[#1F1F1F] text-[#5D7F38] shadow-sm' : 'text-[#808080] hover:text-white'}`}
-                                    >
-                                        Campanhas
-                                    </button>
-                                    <button
-                                        onClick={() => setRankingMode('CREATIVE')}
-                                        className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all ${rankingMode === 'CREATIVE' ? 'bg-[#1F1F1F] text-[#5D7F38] shadow-sm' : 'text-[#808080] hover:text-white'}`}
-                                    >
-                                        Criativos
-                                    </button>
-                                </div>
-
-                                <div className="relative group">
-                                    <select
-                                        className="appearance-none bg-[#252525] border border-white/5 text-[#E5E5E5] text-[10px] font-black uppercase tracking-wide py-2 pl-3 pr-8 rounded-xl outline-none focus:border-[#5D7F38] cursor-pointer hover:bg-[#303030] transition-colors"
-                                        value={selectedPeriod}
-                                        onChange={(e) => setSelectedPeriod(e.target.value as PeriodOption)}
-                                    >
-                                        <option value="hoje">Hoje</option>
-                                        <option value="7d_passado">Últimos 7 dias</option>
-                                        <option value="30d_passado">Últimos 30 dias</option>
-                                        <option value="este_mes">Este Mês</option>
-                                        <option value="tudo">Todo Período</option>
-                                    </select>
-                                    <Calendar size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-[#808080] pointer-events-none" />
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left">
-                                <thead className="bg-[#252525]/50">
-                                    <tr className="text-[10px] font-black uppercase text-[#808080] tracking-widest">
-                                        <th className="p-4 w-16 text-center">#</th>
-                                        <th className="p-4">Nome</th>
-                                        <th className="p-4 text-right">Leads</th>
-                                        <th className="p-4 text-right">Leads Qual.</th>
-                                        <th className="p-4 text-right">ROI</th>
-                                        <th className="p-4 text-right">Lucro</th>
-                                        <th className="p-4 text-right">Investimento</th>
-                                        <th className="p-4 text-right">Receita</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-white/5">
-                                    {(rankingMode === 'CAMPAIGN' ? campaignRanking : creativeRanking).slice(0, 5).map((item, index) => (
-                                        <tr key={item.id} className="hover:bg-white/5 transition-colors group">
-                                            <td className="p-4 text-center">
-                                                <span className={`
-                                                inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-black
-                                                ${index === 0 ? 'bg-amber-500/20 text-amber-400' :
-                                                        index === 1 ? 'bg-[#252525] text-[#A0A0A0]' :
-                                                            index === 2 ? 'bg-orange-500/20 text-orange-400' :
-                                                                'bg-[#252525] text-[#606060]'}
-                                            `}>
-                                                    {index + 1}
-                                                </span>
-                                            </td>
-                                            <td className="p-4">
-                                                <p className="text-xs font-black text-[#E5E5E5] truncate max-w-[200px] md:max-w-xs">{item.name}</p>
-                                            </td>
-                                            <td className="p-4 text-right">
-                                                <span className="text-xs font-bold text-[#808080]">{item.leads}</span>
-                                            </td>
-                                            <td className="p-4 text-right">
-                                                <span className="text-xs font-bold text-[#808080]">{item.qualifiedLeads}</span>
-                                            </td>
-                                            <td className="p-4 text-right">
-                                                <span className={`text-xs font-black ${item.roi >= 2 ? 'text-emerald-400' : item.roi >= 1 ? 'text-blue-400' : 'text-red-400'}`}>
-                                                    {item.roi === Infinity ? '∞' : item.roi.toFixed(1)}x
-                                                </span>
-                                            </td>
-                                            <td className="p-4 text-right">
-                                                <span className={`text-xs font-black ${item.profit > 0 ? 'text-emerald-500' : 'text-[#808080]'}`}>
-                                                    {formatCurrency(item.profit)}
-                                                </span>
-                                            </td>
-                                            <td className="p-4 text-right">
-                                                <span className="text-xs font-bold text-[#606060]">{formatCurrency(item.investment)}</span>
-                                            </td>
-                                            <td className="p-4 text-right">
-                                                <span className="text-xs font-bold text-[#606060]">{formatCurrency(item.revenue)}</span>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {(rankingMode === 'CAMPAIGN' ? campaignRanking : creativeRanking).length === 0 && (
-                                        <tr>
-                                            <td colSpan={8} className="p-8 text-center text-[#606060] text-xs font-medium italic">
-                                                Sem dados para o período selecionado.
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
                 </div>
             )}
 
-            {activeTab === 'METRICS' && (
+            {activeTab === 'PERFORMANCE' && (
                 <div className="space-y-6 animate-in slide-in-from-bottom-2 duration-300">
                     <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
@@ -1015,44 +905,209 @@ export const Marketing = () => {
                         </div>
                     </div>
 
-                    <div className="bg-[#1F1F1F] rounded-3xl shadow-sm border border-white/5 overflow-x-auto">
-                        <table className="w-full text-sm text-left">
-                            <thead className="bg-[#252525] text-[#808080] border-b border-white/5">
-                                <tr>
-                                    <th className="p-5 font-black uppercase text-[10px] tracking-widest">Data</th>
-                                    <th className="p-5 font-black uppercase text-[10px] tracking-widest">Estrutura (Cam &gt; Conj &gt; Cri)</th>
-                                    <th className="p-5 text-right font-black uppercase text-[10px] tracking-widest">Investimento</th>
-                                    <th className="p-5 text-right font-black uppercase text-[10px] tracking-widest">CPL</th>
-                                    <th className="p-5 text-right font-black uppercase text-[10px] tracking-widest">CTR</th>
-                                    <th className="p-5 text-center font-black uppercase text-[10px] tracking-widest">Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {calculatedMetrics.map(m => {
-                                    const cpl = m.leads > 0 ? m.investment / m.leads : 0;
-                                    const ctr = m.impressions > 0 ? (m.clicks / m.impressions) * 100 : 0;
-                                    return (
-                                        <tr key={m.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
-                                            <td className="p-5 font-bold text-white">{new Date(m.date).toLocaleDateString('pt-BR')}</td>
-                                            <td className="p-5">
-                                                <div className="font-black text-[#5D7F38] uppercase text-[11px] truncate">{creatives.find(c => c.id === m.creativeId)?.name || 'Removido'}</div>
-                                                <div className="text-[10px] text-[#808080] font-bold truncate">{campaigns.find(c => c.id === m.campaignId)?.name || '?'} • {adSets.find(a => a.id === m.adSetId)?.name || '?'}</div>
-                                            </td>
-                                            <td className="p-5 text-right font-black text-white">{formatCurrency(m.investment)}</td>
-                                            <td className="p-5 text-right font-black text-[#5D7F38]">{formatCurrency(cpl)}</td>
-                                            <td className="p-5 text-right font-black text-blue-400">{ctr.toFixed(2)}%</td>
-                                            <td className="p-5 text-center">
-                                                <div className="flex items-center justify-center gap-3">
-                                                    <button onClick={() => openMetricModal(m)} className="text-[#808080] hover:text-[#5D7F38] p-2 hover:bg-[#5D7F38]/10 rounded-xl transition-all"><Edit2 size={16} /></button>
-                                                    <button onClick={() => { if (window.confirm("Excluir esta métrica?")) deleteMetric(m.id); }} className="text-[#808080] hover:text-red-500 p-2 hover:bg-red-500/10 rounded-xl transition-all"><Trash2 size={16} /></button>
-                                                </div>
+                    {/* Toggle de Visualização: Ranking / Diário */}
+                    <div className="flex items-center justify-between bg-[#1F1F1F] p-2 rounded-2xl border border-white/5 shadow-sm">
+                        <div className="flex bg-[#252525] p-1 rounded-xl">
+                            <button
+                                onClick={() => setPerformanceView('RANKING')}
+                                className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wide transition-all flex items-center gap-2 ${performanceView === 'RANKING' ? 'bg-[#5D7F38] text-white shadow-lg' : 'text-[#808080] hover:text-white hover:bg-white/5'}`}
+                            >
+                                <Trophy size={14} /> Ranking
+                            </button>
+                            <button
+                                onClick={() => setPerformanceView('DIARIO')}
+                                className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wide transition-all flex items-center gap-2 ${performanceView === 'DIARIO' ? 'bg-[#5D7F38] text-white shadow-lg' : 'text-[#808080] hover:text-white hover:bg-white/5'}`}
+                            >
+                                <Calendar size={14} /> Diário
+                            </button>
+                        </div>
+                    </div>
+
+                    {performanceView === 'RANKING' && (
+                        <>
+                            <div className="bg-[#1F1F1F] rounded-3xl border border-white/5 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 delay-100">
+                                <div className="p-6 border-b border-white/5 flex flex-col md:flex-row justify-between items-center gap-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-amber-500/10 text-amber-400 rounded-xl">
+                                            <Trophy size={20} />
+                                        </div>
+                                        <div>
+                                            <h3 className="font-black text-white text-sm uppercase tracking-wide">Ranking de Performance</h3>
+                                            <p className="text-[10px] font-bold text-[#808080]">Melhores campanhas e criativos</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex bg-[#252525] p-1 rounded-xl">
+                                            <button
+                                                onClick={() => setRankingMode('CAMPAIGN')}
+                                                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all ${rankingMode === 'CAMPAIGN' ? 'bg-[#1F1F1F] text-[#5D7F38] shadow-sm' : 'text-[#808080] hover:text-white'}`}
+                                            >
+                                                Campanhas
+                                            </button>
+                                            <button
+                                                onClick={() => setRankingMode('CREATIVE')}
+                                                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all ${rankingMode === 'CREATIVE' ? 'bg-[#1F1F1F] text-[#5D7F38] shadow-sm' : 'text-[#808080] hover:text-white'}`}
+                                            >
+                                                Criativos
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left">
+                                        <thead className="bg-[#252525]/50">
+                                            <tr className="text-[10px] font-black uppercase text-[#808080] tracking-widest">
+                                                <th className="p-4 w-16 text-center">#</th>
+                                                <th className="p-4">Nome</th>
+                                                <th className="p-4 text-right">Leads</th>
+                                                <th className="p-4 text-right">Leads Qual.</th>
+                                                <th className="p-4 text-right">ROI</th>
+                                                <th className="p-4 text-right">Lucro</th>
+                                                <th className="p-4 text-right">Investimento</th>
+                                                <th className="p-4 text-right">Receita</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-white/5">
+                                            {(rankingMode === 'CAMPAIGN' ? campaignRanking : creativeRanking).slice(0, 5).map((item, index) => (
+                                                <tr key={item.id} className="hover:bg-white/5 transition-colors group">
+                                                    <td className="p-4 text-center">
+                                                        <span className={`
+                                                inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-black
+                                                ${index === 0 ? 'bg-amber-500/20 text-amber-400' :
+                                                                index === 1 ? 'bg-[#252525] text-[#A0A0A0]' :
+                                                                    index === 2 ? 'bg-orange-500/20 text-orange-400' :
+                                                                        'bg-[#252525] text-[#606060]'}
+                                            `}>
+                                                            {index + 1}
+                                                        </span>
+                                                    </td>
+                                                    <td className="p-4">
+                                                        <p className="text-xs font-black text-[#E5E5E5] truncate max-w-[200px] md:max-w-xs">{item.name}</p>
+                                                    </td>
+                                                    <td className="p-4 text-right">
+                                                        <span className="text-xs font-bold text-[#808080]">{item.leads}</span>
+                                                    </td>
+                                                    <td className="p-4 text-right">
+                                                        <span className="text-xs font-bold text-[#808080]">{item.qualifiedLeads}</span>
+                                                    </td>
+                                                    <td className="p-4 text-right">
+                                                        <span className={`text-xs font-black ${item.roi >= 2 ? 'text-emerald-400' : item.roi >= 1 ? 'text-blue-400' : 'text-red-400'}`}>
+                                                            {item.roi === Infinity ? '∞' : item.roi.toFixed(1)}x
+                                                        </span>
+                                                    </td>
+                                                    <td className="p-4 text-right">
+                                                        <span className={`text-xs font-black ${item.profit > 0 ? 'text-emerald-500' : 'text-[#808080]'}`}>
+                                                            {formatCurrency(item.profit)}
+                                                        </span>
+                                                    </td>
+                                                    <td className="p-4 text-right">
+                                                        <span className="text-xs font-bold text-[#606060]">{formatCurrency(item.investment)}</span>
+                                                    </td>
+                                                    <td className="p-4 text-right">
+                                                        <span className="text-xs font-bold text-[#606060]">{formatCurrency(item.revenue)}</span>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                            {(rankingMode === 'CAMPAIGN' ? campaignRanking : creativeRanking).length === 0 && (
+                                                <tr>
+                                                    <td colSpan={8} className="p-8 text-center text-[#606060] text-xs font-medium italic">
+                                                        Sem dados para o período selecionado.
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </>
+                    )}
+
+                    {performanceView === 'DIARIO' && (
+                        <div className="bg-[#1F1F1F] rounded-3xl shadow-sm border border-white/5 overflow-x-auto">
+                            <table className="w-full text-sm text-left">
+                                <thead className="bg-[#252525] text-[#808080] border-b border-white/5">
+                                    <tr>
+                                        <th className="p-4 font-black uppercase text-[10px] tracking-widest">Data</th>
+                                        <th className="p-4 font-black uppercase text-[10px] tracking-widest">Criativo</th>
+                                        <th className="p-4 text-right font-black uppercase text-[10px] tracking-widest">Investimento</th>
+                                        <th className="p-4 text-right font-black uppercase text-[10px] tracking-widest">Leads</th>
+                                        <th className="p-4 text-right font-black uppercase text-[10px] tracking-widest">Leads Qual.</th>
+                                        <th className="p-4 text-right font-black uppercase text-[10px] tracking-widest">CPL</th>
+                                        <th className="p-4 text-right font-black uppercase text-[10px] tracking-widest">CTR</th>
+                                        <th className="p-4 text-right font-black uppercase text-[10px] tracking-widest">Receita</th>
+                                        <th className="p-4 text-right font-black uppercase text-[10px] tracking-widest">Lucro</th>
+                                        <th className="p-4 text-right font-black uppercase text-[10px] tracking-widest">ROI</th>
+                                        <th className="p-4 text-center font-black uppercase text-[10px] tracking-widest">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {calculatedMetrics.map(m => {
+                                        const cpl = m.leads > 0 ? m.investment / m.leads : 0;
+                                        const ctr = m.impressions > 0 ? (m.clicks / m.impressions) * 100 : 0;
+                                        // Calculate revenue from delivered sales for this creative on this date
+                                        const dayRevenue = sales
+                                            .filter(s => s.status === 'ENTREGUE' && s.creativeId === m.creativeId && s.deliveryDate?.split('T')[0] === m.date.split('T')[0])
+                                            .reduce((sum, s) => sum + s.value, 0);
+                                        const profit = dayRevenue - m.investment;
+                                        const roi = m.investment > 0 ? dayRevenue / m.investment : (dayRevenue > 0 ? Infinity : 0);
+                                        const creativeName = creatives.find(c => c.id === m.creativeId)?.name || 'Removido';
+                                        const campaignName = campaigns.find(c => c.id === m.campaignId)?.name || '?';
+                                        const adSetName = adSets.find(a => a.id === m.adSetId)?.name || '?';
+
+                                        return (
+                                            <tr key={m.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                                                <td className="p-4 font-bold text-white text-xs">{new Date(m.date).toLocaleDateString('pt-BR')}</td>
+                                                <td className="p-4">
+                                                    <button
+                                                        onClick={() => {
+                                                            setMetricCampaignFilter(m.campaignId);
+                                                            setMetricCreativesFilter([m.creativeId]);
+                                                        }}
+                                                        className="text-left hover:opacity-80 transition-opacity"
+                                                        title="Clique para filtrar por este criativo"
+                                                    >
+                                                        <div className="font-black text-[#5D7F38] text-[11px] truncate max-w-[180px] hover:underline">{creativeName}</div>
+                                                        <div className="text-[9px] text-[#606060] font-medium truncate max-w-[180px]">{campaignName} › {adSetName}</div>
+                                                    </button>
+                                                </td>
+                                                <td className="p-4 text-right font-black text-white text-xs">{formatCurrency(m.investment)}</td>
+                                                <td className="p-4 text-right font-bold text-[#808080] text-xs">{m.leads}</td>
+                                                <td className="p-4 text-right font-bold text-purple-400 text-xs">{m.qualifiedLeads || 0}</td>
+                                                <td className="p-4 text-right font-black text-amber-400 text-xs">{formatCurrency(cpl)}</td>
+                                                <td className="p-4 text-right font-black text-blue-400 text-xs">{ctr.toFixed(2)}%</td>
+                                                <td className="p-4 text-right font-black text-[#5D7F38] text-xs">{formatCurrency(dayRevenue)}</td>
+                                                <td className="p-4 text-right">
+                                                    <span className={`font-black text-xs ${profit > 0 ? 'text-emerald-400' : profit < 0 ? 'text-red-400' : 'text-[#606060]'}`}>
+                                                        {formatCurrency(profit)}
+                                                    </span>
+                                                </td>
+                                                <td className="p-4 text-right">
+                                                    <span className={`font-black text-xs ${roi >= 2 ? 'text-emerald-400' : roi >= 1 ? 'text-blue-400' : 'text-red-400'}`}>
+                                                        {roi === Infinity ? '∞' : roi.toFixed(1)}x
+                                                    </span>
+                                                </td>
+                                                <td className="p-4 text-center">
+                                                    <div className="flex items-center justify-center gap-2">
+                                                        <button onClick={() => openMetricModal(m)} className="text-[#808080] hover:text-[#5D7F38] p-1.5 hover:bg-[#5D7F38]/10 rounded-lg transition-all"><Edit2 size={14} /></button>
+                                                        <button onClick={() => { if (window.confirm("Excluir esta métrica?")) deleteMetric(m.id); }} className="text-[#808080] hover:text-red-500 p-1.5 hover:bg-red-500/10 rounded-lg transition-all"><Trash2 size={14} /></button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                    {calculatedMetrics.length === 0 && (
+                                        <tr>
+                                            <td colSpan={11} className="p-8 text-center text-[#606060] text-xs font-medium italic">
+                                                Sem métricas para o período selecionado.
                                             </td>
                                         </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
                 </div>
             )}
 

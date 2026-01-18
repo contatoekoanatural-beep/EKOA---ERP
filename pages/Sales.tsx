@@ -8,10 +8,13 @@ import { useAuth } from '../contexts/AuthContext';
 
 import { Sale, SaleStatus } from '../types';
 import { formatCurrency, formatDate, getCurrentLocalDate, getLast30DaysDate } from '../constants';
-import { Search, Plus, Edit2, Filter, Trash2, Calendar, CheckCircle, XCircle, DollarSign, ShoppingBag, ArrowRight, ChevronDown, Package, TrendingDown, Wallet } from 'lucide-react';
+import { Search, Plus, Edit2, Filter, Trash2, Calendar, CheckCircle, XCircle, DollarSign, ShoppingBag, ArrowRight, ChevronDown, Package, TrendingDown, Wallet, Clock, CalendarCheck, Truck, Eye } from 'lucide-react';
 import { ConfirmationModal } from '../components/ConfirmationModal';
 
-type PeriodOption = 'hoje' | '7d_passado' | '7d_futuro' | '30d_passado' | '30d_futuro' | 'este_mes' | 'mes_passado' | 'personalizado' | 'tudo';
+import { getPeriodRange } from '../utils/dateUtils';
+
+type PeriodOption = 'hoje' | 'amanha' | 'ontem' | '7d_futuro' | '7d_passado' | 'personalizado';
+type ViewByOption = 'scheduledDate' | 'schedulingDate' | 'deliveryDate';
 
 export const Sales = () => {
   const { sales, addSale, updateSale, deleteSale, users, frustrationReasons, products } = useOperations();
@@ -30,66 +33,25 @@ export const Sales = () => {
   const [searchText, setSearchText] = useState('');
 
   // Period Selection (Matching Dashboard logic)
-  const [selectedPeriod, setSelectedPeriod] = useState<PeriodOption>('este_mes');
-  const [dateFrom, setDateFrom] = useState<string>(getLast30DaysDate());
+  const [selectedPeriod, setSelectedPeriod] = useState<PeriodOption>('hoje');
+  const [dateFrom, setDateFrom] = useState<string>(getCurrentLocalDate());
   const [dateTo, setDateTo] = useState<string>(getCurrentLocalDate());
+  const [dateError, setDateError] = useState<string>('');
+  const [viewBy, setViewBy] = useState<ViewByOption>('scheduledDate');
 
   // Lógica para atualizar as datas baseado no período selecionado
   useEffect(() => {
-    const today = new Date();
-    const format = (d: Date) => d.toISOString().split('T')[0];
+    if (selectedPeriod === 'personalizado') return;
 
-    switch (selectedPeriod) {
-      case 'hoje':
-        setDateFrom(format(today));
-        setDateTo(format(today));
-        break;
-      case '7d_passado': {
-        const start = new Date();
-        start.setDate(today.getDate() - 6);
-        setDateFrom(format(start));
-        setDateTo(format(today));
-        break;
-      }
-      case '7d_futuro': {
-        const end = new Date();
-        end.setDate(today.getDate() + 6);
-        setDateFrom(format(today));
-        setDateTo(format(end));
-        break;
-      }
-      case '30d_passado': {
-        const start = new Date();
-        start.setDate(today.getDate() - 29);
-        setDateFrom(format(start));
-        setDateTo(format(today));
-        break;
-      }
-      case '30d_futuro': {
-        const end = new Date();
-        end.setDate(today.getDate() + 29);
-        setDateFrom(format(today));
-        setDateTo(format(end));
-        break;
-      }
-      case 'este_mes': {
-        const start = new Date(today.getFullYear(), today.getMonth(), 1);
-        const end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-        setDateFrom(format(start));
-        setDateTo(format(end));
-        break;
-      }
-      case 'mes_passado': {
-        const start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-        const end = new Date(today.getFullYear(), today.getMonth(), 0);
-        setDateFrom(format(start));
-        setDateTo(format(end));
-        break;
-      }
-      case 'tudo':
-        setDateFrom('');
-        setDateTo('');
-        break;
+    const { startDateTime, endDateTime } = getPeriodRange(selectedPeriod);
+
+    // The inputs expect YYYY-MM-DD
+    if (startDateTime && endDateTime) {
+      setDateFrom(startDateTime.split('T')[0]);
+      setDateTo(endDateTime.split('T')[0]);
+    } else if (selectedPeriod === 'tudo') {
+      setDateFrom('');
+      setDateTo('');
     }
   }, [selectedPeriod]);
 
@@ -147,15 +109,21 @@ export const Sales = () => {
       // 2. Status Filter
       if (filterStatus !== 'all' && s.status !== filterStatus) return false;
 
-      // 3. Smart Date Filter (Context Aware)
+      // 3. Date Filter based on 'viewBy' selection (affects table only)
       if (dateFrom || dateTo) {
         let dateToCompare = '';
 
-        // Rule: Status determines which date to filter by
-        if (filterStatus === 'ENTREGUE') {
-          dateToCompare = s.deliveryDate || '';
-        } else {
-          dateToCompare = s.scheduledDate || '';
+        // Use the selected viewBy field
+        switch (viewBy) {
+          case 'scheduledDate':
+            dateToCompare = s.scheduledDate || '';
+            break;
+          case 'schedulingDate':
+            dateToCompare = s.schedulingDate || '';
+            break;
+          case 'deliveryDate':
+            dateToCompare = s.deliveryDate || '';
+            break;
         }
 
         if (!dateToCompare) return false;
@@ -166,20 +134,80 @@ export const Sales = () => {
 
       return true;
     }).sort((a, b) => {
-      if (filterStatus === 'ENTREGUE') {
-        return (b.deliveryDate || '').localeCompare(a.deliveryDate || '');
+      // Sort based on viewBy field
+      switch (viewBy) {
+        case 'deliveryDate':
+          return (b.deliveryDate || '').localeCompare(a.deliveryDate || '');
+        case 'schedulingDate':
+          return (b.schedulingDate || '').localeCompare(a.schedulingDate || '');
+        default:
+          return (a.scheduledDate || '9999-99-99').localeCompare(b.scheduledDate || '9999-99-99');
       }
-      return (a.scheduledDate || '9999-99-99').localeCompare(b.scheduledDate || '9999-99-99');
     });
-  }, [sales, searchText, filterStatus, dateFrom, dateTo]);
+  }, [sales, searchText, filterStatus, dateFrom, dateTo, viewBy]);
 
   const listSummary = useMemo(() => {
+    // Exclude FRUSTRADO from value calculations (only count valid sales)
+    const validSales = filteredSales.filter(s => s.status !== 'FRUSTRADO');
     const count = filteredSales.length;
-    const totalValue = filteredSales.reduce((acc, curr) => acc + curr.value, 0);
-    const totalFees = filteredSales.reduce((acc, curr) => acc + (curr.deliveryFee || 0) + (curr.logzzFee || 0), 0);
+    const totalValue = validSales.reduce((acc, curr) => acc + curr.value, 0);
+    const totalFees = validSales.reduce((acc, curr) => acc + (curr.deliveryFee || 0) + (curr.logzzFee || 0), 0);
     const netValue = totalValue - totalFees;
     return { count, totalValue, totalFees, netValue };
   }, [filteredSales]);
+
+  // Entregas pendentes no período: status em {AGENDADO, REAGENDADO} com entregaAgendadaDate no período
+  const pendingDeliveries = useMemo(() => {
+    const allowedStatuses = ['AGENDADO', 'REAGENDADO'];
+    return sales.filter(s => {
+      // Only include AGENDADO/REAGENDADO
+      if (!allowedStatuses.includes(s.status)) return false;
+
+      // Filter by scheduledDate (entregaAgendadaDate) within the period
+      const scheduled = s.scheduledDate || '';
+      if (!scheduled) return false;
+
+      if (dateFrom && scheduled < dateFrom) return false;
+      if (dateTo && scheduled > dateTo) return false;
+
+      return true;
+    }).length;
+  }, [sales, dateFrom, dateTo]);
+
+  // Agendamentos realizados no período: status em {AGENDADO, REAGENDADO, ENTREGUE} com negociacaoWppDate no período (exclui FRUSTRADO)
+  const scheduledAppointments = useMemo(() => {
+    const allowedStatuses = ['AGENDADO', 'REAGENDADO', 'ENTREGUE'];
+    return sales.filter(s => {
+      // Only include valid statuses (excludes FRUSTRADO)
+      if (!allowedStatuses.includes(s.status)) return false;
+
+      // Filter by schedulingDate (negociacaoWppDate) within the period
+      const scheduling = s.schedulingDate || '';
+      if (!scheduling) return false;
+
+      if (dateFrom && scheduling < dateFrom) return false;
+      if (dateTo && scheduling > dateTo) return false;
+
+      return true;
+    }).length;
+  }, [sales, dateFrom, dateTo]);
+
+  // Vendas entregues no período (baseado em deliveryDate/entregaRealizadaDate, apenas ENTREGUE)
+  const deliveredSales = useMemo(() => {
+    return sales.filter(s => {
+      // Only count ENTREGUE status
+      if (s.status !== 'ENTREGUE') return false;
+
+      // Filter by deliveryDate within the period
+      const delivery = s.deliveryDate || '';
+      if (!delivery) return false;
+
+      if (dateFrom && delivery < dateFrom) return false;
+      if (dateTo && delivery > dateTo) return false;
+
+      return true;
+    }).length;
+  }, [sales, dateFrom, dateTo]);
 
   // --- HANDLERS ---
   const handleOpenModal = (sale?: Sale) => {
@@ -256,12 +284,32 @@ export const Sales = () => {
 
     let finalData = { ...formData };
 
+    // Validation for Logzz: Batch is required
+    if (finalData.deliveryType === 'Logzz' && !finalData.batchId) {
+      alert("Selecione o lote para vendas via Logzz");
+      return;
+    }
+
+    // Validation: AGENDADO/REAGENDADO requires scheduledDate (entregaAgendadaDate)
+    if ((finalData.status === 'AGENDADO' || finalData.status === 'REAGENDADO') && !finalData.scheduledDate) {
+      alert("Para status AGENDADO ou REAGENDADO, a data de entrega agendada é obrigatória.");
+      return;
+    }
+
+    // Force clear batch for Correios to avoid dirty data
+    if (finalData.deliveryType === 'Correios') {
+      finalData.batchId = null;
+    }
+
+    // Auto-fill deliveryDate (entregaRealizadaDate) when status is ENTREGUE
     if (finalData.status === 'ENTREGUE' && !finalData.deliveryDate) {
       finalData.deliveryDate = todayStr;
     }
     if (finalData.status !== 'ENTREGUE') {
       finalData.deliveryDate = null;
     }
+
+    // Auto-change to REAGENDADO if scheduledDate changed
     if (editingSale) {
       if (editingSale.status === 'AGENDADO' && finalData.scheduledDate !== editingSale.scheduledDate) {
         if (finalData.status === 'AGENDADO') {
@@ -336,6 +384,20 @@ export const Sales = () => {
             </select>
           </div>
 
+          {/* View By Filter */}
+          <div className="flex items-center gap-2 border border-white/5 rounded-lg p-1.5 bg-[#252525] flex-1 lg:flex-none">
+            <Eye size={16} className="text-[#808080] ml-2" />
+            <select
+              value={viewBy}
+              onChange={(e) => setViewBy(e.target.value as ViewByOption)}
+              className="bg-transparent text-xs font-black uppercase tracking-widest focus:outline-none text-white w-full lg:w-40 cursor-pointer"
+            >
+              <option value="scheduledDate" className="bg-[#252525]">Entrega Agendada</option>
+              <option value="schedulingDate" className="bg-[#252525]">Agendamento (WPP)</option>
+              <option value="deliveryDate" className="bg-[#252525]">Entrega Realizada</option>
+            </select>
+          </div>
+
           {/* FRUSTRATED MANAGEMENT BUTTON */}
           {filterStatus === 'FRUSTRADO' && (
             <button
@@ -358,13 +420,10 @@ export const Sales = () => {
               className="appearance-none bg-[#1F1F1F] border border-white/5 rounded-lg pl-4 pr-10 py-2.5 text-xs font-black uppercase tracking-widest text-[#E5E5E5] shadow-sm focus:outline-none focus:ring-1 focus:ring-[#5D7F38] cursor-pointer w-full"
             >
               <option value="hoje">Hoje</option>
-              <option value="7d_passado">Últimos 7 dias</option>
+              <option value="amanha">Amanhã</option>
+              <option value="ontem">Ontem</option>
               <option value="7d_futuro">Próximos 7 dias</option>
-              <option value="30d_passado">Últimos 30 dias</option>
-              <option value="30d_futuro">Próximos 30 dias</option>
-              <option value="este_mes">Este mês</option>
-              <option value="mes_passado">Mês passado</option>
-              <option value="tudo">Ver Tudo</option>
+              <option value="7d_passado">Últimos 7 dias</option>
               <option value="personalizado">Personalizado</option>
             </select>
             <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-[#808080]">
@@ -374,21 +433,44 @@ export const Sales = () => {
 
           {/* CUSTOM DATE INPUTS */}
           {selectedPeriod === 'personalizado' && (
-            <div className="flex items-center gap-2 bg-[#1F1F1F] border border-white/5 rounded-lg p-1.5 shadow-sm animate-in fade-in slide-in-from-right-2 duration-200">
-              <Calendar size={16} className="text-[#808080] ml-1" />
-              <input
-                type="date"
-                className="text-[11px] font-bold border-none focus:ring-0 text-[#E5E5E5] bg-transparent outline-none cursor-pointer p-0 w-24 [color-scheme:dark]"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-              />
-              <span className="text-[#606060] text-[9px] font-bold">até</span>
-              <input
-                type="date"
-                className="text-[11px] font-bold border-none focus:ring-0 text-[#E5E5E5] bg-transparent outline-none cursor-pointer p-0 w-24 [color-scheme:dark]"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-              />
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-2 bg-[#1F1F1F] border border-white/5 rounded-lg p-1.5 shadow-sm animate-in fade-in slide-in-from-right-2 duration-200">
+                <Calendar size={16} className="text-[#808080] ml-1" />
+                <input
+                  type="date"
+                  className="text-[11px] font-bold border-none focus:ring-0 text-[#E5E5E5] bg-transparent outline-none cursor-pointer p-0 w-24 [color-scheme:dark]"
+                  value={dateFrom}
+                  onChange={(e) => {
+                    const newFrom = e.target.value;
+                    setDateFrom(newFrom);
+                    if (dateTo && newFrom > dateTo) {
+                      setDateError('Data inicial não pode ser maior que a data final.');
+                    } else {
+                      setDateError('');
+                    }
+                  }}
+                />
+                <span className="text-[#606060] text-[9px] font-bold">até</span>
+                <input
+                  type="date"
+                  className="text-[11px] font-bold border-none focus:ring-0 text-[#E5E5E5] bg-transparent outline-none cursor-pointer p-0 w-24 [color-scheme:dark]"
+                  value={dateTo}
+                  onChange={(e) => {
+                    const newTo = e.target.value;
+                    if (dateFrom && newTo < dateFrom) {
+                      setDateError('Data final não pode ser menor que a data inicial.');
+                    } else {
+                      setDateError('');
+                      setDateTo(newTo);
+                    }
+                  }}
+                />
+              </div>
+              {dateError && (
+                <span className="text-[10px] text-red-400 font-bold ml-1 animate-in fade-in">
+                  {dateError}
+                </span>
+              )}
             </div>
           )}
 
@@ -424,6 +506,36 @@ export const Sales = () => {
           <div>
             <p className="text-[10px] text-[#606060] font-black uppercase tracking-widest leading-none mb-1">Valor Líquido</p>
             <p className="text-xl font-black text-[#5D7F38]">{formatCurrency(listSummary.netValue)}</p>
+          </div>
+        </div>
+
+        <div className="bg-[#1F1F1F] p-4 rounded-xl border border-white/5 shadow-sm flex items-center gap-4">
+          <div className="p-3 rounded-full bg-amber-500/10 text-amber-500">
+            <Clock size={20} />
+          </div>
+          <div>
+            <p className="text-[10px] text-[#606060] font-black uppercase tracking-widest leading-none mb-1">Entregas Pendentes</p>
+            <p className="text-xl font-black text-amber-500">{pendingDeliveries}</p>
+          </div>
+        </div>
+
+        <div className="bg-[#1F1F1F] p-4 rounded-xl border border-white/5 shadow-sm flex items-center gap-4">
+          <div className="p-3 rounded-full bg-blue-500/10 text-blue-500">
+            <CalendarCheck size={20} />
+          </div>
+          <div>
+            <p className="text-[10px] text-[#606060] font-black uppercase tracking-widest leading-none mb-1">Agendamentos Realizados</p>
+            <p className="text-xl font-black text-blue-500">{scheduledAppointments}</p>
+          </div>
+        </div>
+
+        <div className="bg-[#1F1F1F] p-4 rounded-xl border border-white/5 shadow-sm flex items-center gap-4">
+          <div className="p-3 rounded-full bg-[#5D7F38]/10 text-[#5D7F38]">
+            <Truck size={20} />
+          </div>
+          <div>
+            <p className="text-[10px] text-[#606060] font-black uppercase tracking-widest leading-none mb-1">Vendas Entregues</p>
+            <p className="text-xl font-black text-[#5D7F38]">{deliveredSales}</p>
           </div>
         </div>
       </div>
@@ -521,7 +633,20 @@ export const Sales = () => {
               ))}
               {filteredSales.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="p-16 text-center text-[#606060] font-bold italic">Nenhuma venda encontrada com os filtros atuais.</td>
+                  <td colSpan={9} className="p-16 text-center text-[#606060] font-bold italic">
+                    Nenhuma venda encontrada para {
+                      viewBy === 'scheduledDate' ? 'Entrega agendada' :
+                        viewBy === 'schedulingDate' ? 'Agendamento (WPP)' :
+                          'Entrega realizada'
+                    } no período {
+                      selectedPeriod === 'hoje' ? 'HOJE' :
+                        selectedPeriod === 'amanha' ? 'AMANHÃ' :
+                          selectedPeriod === 'ontem' ? 'ONTEM' :
+                            selectedPeriod === '7d_futuro' ? 'PRÓXIMOS 7 DIAS' :
+                              selectedPeriod === '7d_passado' ? 'ÚLTIMOS 7 DIAS' :
+                                `PERSONALIZADO (${dateFrom} a ${dateTo})`
+                    }.
+                  </td>
                 </tr>
               )}
             </tbody>
@@ -630,8 +755,8 @@ export const Sales = () => {
                           </span>
                         </div>
 
-                        {/* Batch Selection */}
-                        {formData.productId && (
+                        {/* Batch Selection - Only for Logzz */}
+                        {formData.productId && formData.deliveryType === 'Logzz' && (
                           <div className="mt-4 pt-4 border-t border-white/5 animate-in fade-in slide-in-from-top-2">
                             <label className="text-[10px] font-black uppercase text-[#5D7F38] mb-2 block tracking-widest flex items-center gap-1.5">
                               <Package size={12} />
@@ -700,7 +825,14 @@ export const Sales = () => {
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-[#808080] uppercase mb-1.5 tracking-widest">Logística / Entrega</label>
-                    <select className="w-full border border-white/5 rounded-2xl p-3.5 text-sm font-black bg-[#1F1F1F] focus:border-[#5D7F38] outline-none transition-all cursor-pointer text-white" value={formData.deliveryType} onChange={e => setFormData({ ...formData, deliveryType: e.target.value as any })}>
+                    <select className="w-full border border-white/5 rounded-2xl p-3.5 text-sm font-black bg-[#1F1F1F] focus:border-[#5D7F38] outline-none transition-all cursor-pointer text-white" value={formData.deliveryType} onChange={e => {
+                      const newType = e.target.value as any;
+                      setFormData({
+                        ...formData,
+                        deliveryType: newType,
+                        batchId: newType === 'Correios' ? null : formData.batchId
+                      });
+                    }}>
                       <option value="Logzz">Logzz (Pagto na Entrega)</option>
                       <option value="Correios">Correios (Antecipado)</option>
                     </select>
